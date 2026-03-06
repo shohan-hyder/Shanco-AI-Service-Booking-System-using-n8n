@@ -1,7 +1,7 @@
 # Shanco-AI-Service-Booking-System-using-n8n
 
 This project is an n8n workflow that runs a Telegram bot for:
-- Home services booking (cleaning, sofa cleaning, washroom, painting, relocation etc.)
+- Home services booking
 - Product ordering (home service related products)
 - Auto saving bookings to Google Sheets
 - Auto sending confirmation email via Gmail
