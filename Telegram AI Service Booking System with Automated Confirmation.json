@@ -1,0 +1,609 @@
+{
+  "name": "Telegram AI Service Booking System with Automated Confirmation",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message",
+          "callback_query"
+        ],
+        "additionalFields": {}
+      },
+      "id": "557195ea-3189-492b-aca1-0928d65e017d",
+      "name": "Telegram Bot Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        256,
+        400
+      ],
+      "webhookId": "99ff1f47-2537-49af-a995-5daa2145dd9e",
+      "credentials": {
+        "telegramApi": {
+          "id": "6ee9CoVwTG87RxbF",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message.text }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "When user says hello/start or asks \"what's available / products / services\", you MUST call Product Data Tool first.\n\nNever guess product names or prices.\n\nShow only available items (Availability not \"Out of Stock\").\n\nFor Service (Service Time > 0): need Name + Email + Product/Service + Date/Time + \"confirm\"\n\nFor Product (Service Time = 0): need Name + Email + Product + Quantity + \"confirm\"\n\nDate/Time is optional for product (delivery time). If missing set it to \"N/A\".\n\nAsk the user to choose by exact Product Name.\n\nIf user selects a Product, always ask: \"How many units?\"\n\nOnly set bookingConfirmed=true when user says confirm/yes\n\nSet:\n- itemType = \"Service\" when Service Time > 0\n- itemType = \"Product\" when Service Time = 0\n- For Product with no delivery time: dateTime = \"N/A\""
+        }
+      },
+      "id": "dd1c9a57-f321-4db1-a486-2c3d88e720ee",
+      "name": "Booking Assistant AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        544,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "model": "llama-3.1-8b-instant",
+        "options": {
+          "temperature": 0.4
+        }
+      },
+      "id": "e52375f2-e000-450b-8d2e-a8784c70c5a2",
+      "name": "Groq Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        480,
+        624
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "4DqXm18kdJZRBua1",
+          "name": "Groq account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=={{ $json.message.chat.id }}",
+        "contextWindowLength": 10
+      },
+      "id": "906b66ea-9b83-4677-8b64-ceff4207b7e2",
+      "name": "Conversation Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        608,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "USE THIS TOOL FIRST when a customer contacts you or asks what is available. This tool fetches the complete current product catalog from Google Sheets including: product name, description, price, availability status, and service duration. Call this immediately at the start of conversations to show customers what products and services are available. Always fetch fresh data before discussing specific products to ensure accuracy.",
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "https://docs.google.com/spreadsheets/d/1H_qM0ODUIefnviO_2IIdO6w4CzPUIO41a82zZr5uJdU/edit?usp=drivesdk",
+          "__regex": "https:\\/\\/(?:drive|docs)\\.google\\.com(?:\\/.*|)\\/d\\/([0-9a-zA-Z\\-_]+)(?:\\/.*|)"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Catalog",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1H_qM0ODUIefnviO_2IIdO6w4CzPUIO41a82zZr5uJdU/edit#gid=0"
+        },
+        "options": {}
+      },
+      "id": "1b183110-ef20-470b-bc1a-aa274c30d31f",
+      "name": "Product Data Tool",
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        736,
+        720
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qAfBR5Lz2moHFvvE",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "id-1",
+              "leftValue": "={{ $json.bookingConfirmed }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "bc3edd6b-2507-4aa9-814c-770ab0f44955",
+      "name": "Check Booking Confirmed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1168,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "customerName",
+              "value": "={{ $json.customerName }}",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "email",
+              "value": "={{ $json.email }}",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "product",
+              "value": "={{ $json.product }}",
+              "type": "string"
+            },
+            {
+              "id": "id-4",
+              "name": "dateTime",
+              "value": "={{ $json.dateTime }}",
+              "type": "string"
+            },
+            {
+              "id": "id-5",
+              "name": "chatId",
+              "value": "={{ $('Telegram Bot Trigger').item.json.message.chat.id }}",
+              "type": "string"
+            },
+            {
+              "id": "id-6",
+              "name": "itemType",
+              "value": "={{ $json.itemType }}",
+              "type": "string"
+            },
+            {
+              "id": "id-7",
+              "name": "quantity",
+              "value": "={{ $json.quantity }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "486b6316-6409-4787-a58f-4c822d2f267a",
+      "name": "Prepare Booking Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1392,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate unique booking reference\nconst timestamp = Date.now();\nconst randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, \"0\");\nconst bookingRef = `BK${timestamp}${randomNum}`;\n\n// Add booking reference and timestamp to each item\nconst items = $input.all();\nreturn items.map(item => ({\n  json: {\n    ...item.json,\n    bookingReference: bookingRef,\n    bookingTimestamp: new Date().toISOString()\n  }\n}));"
+      },
+      "id": "da706e31-2194-4875-bbcb-93e717c5c0af",
+      "name": "Generate Booking Reference",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1616,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1PhEbhSVRVXswRk-fo3L2mVIxvf4vnSdsYiaIOqIp_i8",
+          "mode": "list",
+          "cachedResultName": "Booking Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1PhEbhSVRVXswRk-fo3L2mVIxvf4vnSdsYiaIOqIp_i8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Booking",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1PhEbhSVRVXswRk-fo3L2mVIxvf4vnSdsYiaIOqIp_i8/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Booking Reference": "={{ $json.bookingReference }}",
+            "Customer Name": "={{ $json.customerName }}",
+            "Email": "={{ $json.email }}",
+            "Product/Service": "={{ $json.itemType === \"Product\" ? ($json.product + \" x\" + $json.quantity) : $json.product }}",
+            "Date/Time": "={{ $json.dateTime }}",
+            "Timestamp": "={{ $json.bookingTimestamp }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Booking Reference",
+              "displayName": "Booking Reference",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Customer Name",
+              "displayName": "Customer Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Product/Service",
+              "displayName": "Product/Service",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Date/Time",
+              "displayName": "Date/Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "710824ba-8fa4-486f-a692-a9f0e3f4a92d",
+      "name": "Save Booking to Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1840,
+        304
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qAfBR5Lz2moHFvvE",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "=Booking Confirmation - {{ $json.product }}",
+        "message": "=<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n    .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n    .header { background-color: #4CAF50; color: white; padding: 20px; text-align: center; }\n    .content { background-color: #f9f9f9; padding: 20px; margin-top: 20px; }\n    .booking-details { background-color: white; padding: 15px; margin: 15px 0; border-left: 4px solid #4CAF50; }\n    .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>Booking Confirmed!</h1>\n    </div>\n    <div class=\"content\">\n      <p>Dear {{ $json.customerName }},</p>\n      <p>Thank you for your booking! We are pleased to confirm your reservation.</p>\n      \n      <div class=\"booking-details\">\n        <h3>Booking Details:</h3>\n        <p><strong>Booking Reference:</strong> {{ $json.bookingReference }}</p>\n        <p><strong>Type:</strong> {{ $json.itemType }}</p>\n        <p><strong>Product/Service:</strong> {{ $json.product }}</p>\n        {{ $json.itemType === 'Product' ? '<p><strong>Quantity:</strong> ' + $json.quantity + '</p>' : '' }}\n        <p><strong>Date & Time:</strong> {{ $json.dateTime }}</p>\n        <p><strong>Customer Name:</strong> {{ $json.customerName }}</p>\n        <p><strong>Email:</strong> {{ $json.email }}</p>\n        <p><strong>Booking Date:</strong> {{ $json.bookingTimestamp }}</p>\n      </div>\n      \n      <p>If you have any questions or need to make changes to your booking, please contact us with your booking reference number.</p>\n      <p>We look forward to serving you!</p>\n    </div>\n    <div class=\"footer\">\n      <p>This is an automated confirmation email. Please do not reply to this message.</p>\n    </div>\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "6974f21c-e8ea-4833-bcf7-884182d6c5be",
+      "name": "Send Confirmation Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2064,
+        304
+      ],
+      "webhookId": "5c9116e1-86b5-420f-af01-f1705dcf6d78",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2nTssESySwpJeBRo",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "=✅ *Booking Confirmed!*\n\n🎫 *Booking Reference:* {{ $json.bookingReference }}\n👤 *Name:* {{ $json.customerName }}\n📧 *Email:* {{ $json.email }}\n🛍️ *Product/Service:* {{ $json.itemType === 'Product' ? ($json.product + ' x' + $json.quantity) : $json.product }}\n📅 *Date & Time:* {{ $json.dateTime }}\n\nA confirmation email has been sent to {{ $json.email }}.\n\nThank you for your booking! 🎉",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "a56c6c43-2479-4a68-83e2-0a13d689b734",
+      "name": "Send Booking Confirmation",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2288,
+        304
+      ],
+      "webhookId": "5b1c697f-831c-4aa6-b65e-6e60f1aa506d",
+      "credentials": {
+        "telegramApi": {
+          "id": "6ee9CoVwTG87RxbF",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Bot Trigger').item.json.message.chat.id }}",
+        "text": "={{ $('Parse Booking Data').item.json.output }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "65294316-e55c-45a0-930e-232536751203",
+      "name": "Send Conversation Response",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1392,
+        496
+      ],
+      "webhookId": "d515827a-2e23-4373-8c2e-1f4e1e55cae3",
+      "credentials": {
+        "telegramApi": {
+          "id": "6ee9CoVwTG87RxbF",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the structured output from AI Agent\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json.output || item.json;\n\n  const conversationalMessage =\n    data.conversationalMessage ||\n    \"I'm here to help you book our services or order products. What do you need?\";\n\n  const bookingConfirmed = data.bookingConfirmed === true;\n\n  if (bookingConfirmed) {\n    results.push({\n      json: {\n        customerName: data.customerName || \"\",\n        email: data.email || \"\",\n        product: data.product || \"\",\n        itemType: data.itemType || \"\",\n        quantity: data.quantity || 1,\n        dateTime: data.dateTime || \"\",\n        bookingConfirmed: true,\n        output: conversationalMessage\n      }\n    });\n  } else {\n    results.push({\n      json: {\n        output: conversationalMessage,\n        bookingConfirmed: false\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "id": "52c22bca-a504-4f4b-9e82-fc113c893b59",
+      "name": "Parse Booking Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        944,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"bookingConfirmed\": {\n      \"type\": \"boolean\",\n      \"description\": \"Set true only when the user clearly says confirm/yes and all required details are collected.\"\n    },\n    \"customerName\": {\n      \"type\": \"string\",\n      \"description\": \"Full name of the customer\"\n    },\n    \"email\": {\n      \"type\": \"string\",\n      \"description\": \"Customer email address\"\n    },\n    \"product\": {\n      \"type\": \"string\",\n      \"description\": \"Selected product or service name (must match the sheet name exactly if possible)\"\n    },\n    \"itemType\": {\n      \"type\": \"string\",\n      \"description\": \"Either 'Product' or 'Service'. If Service Time > 0 then Service, else Product.\"\n    },\n    \"quantity\": {\n      \"type\": \"number\",\n      \"description\": \"Only for Product orders. Must be 1 or more. For Service set to 1.\"\n    },\n    \"dateTime\": {\n      \"type\": \"string\",\n      \"description\": \"For Service: required preferred date/time. For Product: put 'N/A' if user did not provide delivery time.\"\n    },\n    \"conversationalMessage\": {\n      \"type\": \"string\",\n      \"description\": \"Friendly response message to send to the customer\"\n    }\n  }\n}"
+      },
+      "id": "67a03582-e84d-48c4-bab9-659fd3cb699c",
+      "name": "Booking Data Extractor",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        896,
+        656
+      ]
+    }
+  ],
+  "pinData": {
+    "Telegram Bot Trigger": [
+      {
+        "json": {
+          "update_id": 766192806,
+          "message": {
+            "message_id": 15,
+            "from": {
+              "id": 5537685279,
+              "is_bot": false,
+              "first_name": "Shohan",
+              "last_name": "Hyder",
+              "language_code": "en"
+            },
+            "chat": {
+              "id": 5537685279,
+              "first_name": "Shohan",
+              "last_name": "Hyder",
+              "type": "private"
+            },
+            "date": 1772806507,
+            "text": "Hello"
+          }
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Telegram Bot Trigger": {
+      "main": [
+        [
+          {
+            "node": "Booking Assistant AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Booking Assistant AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversation Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Booking Assistant AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Product Data Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Booking Assistant AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Booking Assistant AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse Booking Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Booking Confirmed": {
+      "main": [
+        [
+          {
+            "node": "Prepare Booking Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Conversation Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Booking Data": {
+      "main": [
+        [
+          {
+            "node": "Generate Booking Reference",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Booking Reference": {
+      "main": [
+        [
+          {
+            "node": "Save Booking to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Booking to Sheet": {
+      "main": [
+        [
+          {
+            "node": "Send Confirmation Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Confirmation Email": {
+      "main": [
+        [
+          {
+            "node": "Send Booking Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Booking Data": {
+      "main": [
+        [
+          {
+            "node": "Check Booking Confirmed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Booking Data Extractor": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Booking Assistant AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "70099ef0-6b05-47f8-9e68-bc1e038ab53f",
+  "meta": {
+    "instanceId": "85bf49f207126270352dfe0a87221fd334ca0efb714aaa2d28c7591860c47a72"
+  },
+  "id": "KUnCqe3q7U4ohWU5",
+  "tags": []
+}
